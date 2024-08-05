@@ -186,5 +186,4 @@ cython_debug/
 #.idea/
 
 *.txt
-*.csv
 *.xml
