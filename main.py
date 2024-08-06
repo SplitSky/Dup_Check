@@ -104,15 +104,23 @@ def read_csv(file_path):
     :param file_path: str, path to the CSV file
     :return: list of dictionaries
     """
-    data = []
+    full_data = []
+
     
     with open(file_path, mode='r', encoding='utf-8-sig') as file:
         # Create a CSV reader object
         csv_reader = csv.DictReader(file)
         # Iterate over each row and append it to the data list
         for row in csv_reader:
-            data.append(row)
-            
+            full_data.append(row)
+            # the individual row of data
+    '''
+    structure of dict
+    {
+    field_name : [master_field_value , duplicate_field_value],
+    field_name2: [master_field_value , duplicate_field_value],
+    }
+    '''
     return data
             
 def load_config(config_path):
@@ -134,16 +142,48 @@ def load_config(config_path):
 		file.close()
 	return data
             
-            
 def DUNS_score(path_to_data):
     config_dict = load_config("config.csv") # stores all of the config data to be used in weighting and nulls
     # Modifies the data dicitonary to include a score column and adds the scores there
     # For pair of fields -> load the csv
+    master_prefix = "DSE__DS_Master__r."
+    dup_prefix = "DSE__DS_Duplicate__r."
     data = read_csv(path_to_data)
-    for i in range(0,len(data),1):
+    out_dict = {}
+    for i in range(0,len(data),1): # Each row in data
+        print("a") 
+        for key in config_dict.keys(): # Each field
+            # Fetch master field
+            master_field = data[master_prefix + key]
+            # Fetch duplicate field
+            dup_field = data[dup_prefix + key] 
+            # calculate the score
+            # calc score
+            '''
+
+            def calculate_score(weighting, null_score, value1, value2):
+                if weighting != 200:
+                    return "invalid input"
+                
+                if null_score == 0:
+                    if value1 is not None and value2 is not None:
+                        return "match" if value1 == value2 else "no match (total score = 0)"
+                    return "no match (total score = 0)"
+                
+                if 1 <= null_score <= 100:
+                    if value1 is not None and value2 is not None:
+                        return "match" if value1 == value2 else "no match (total score = 0)"
+                    return "match"  # This covers both cases: only one populated or both null
+                
+                return "invalid input"
+            '''
+
+
+            out_dict[key] = JW_score(master_field, dup_field)
         # loop over each pair
 # define main
 def main():
+    read_csv("Test_Example.csv")
 
     # import the CSV
     # import the config weights and null values
