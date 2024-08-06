@@ -122,6 +122,12 @@ def read_csv(file_path):
     }
     '''
     return data
+
+def exact_match(s1, s2):
+    if s1 == s2:
+        return 1
+    else:
+        return 0
             
 def load_config(config_path):
 	# Loads the config csv and uses it for data calculations
@@ -141,7 +147,27 @@ def load_config(config_path):
 		print(data)
 		file.close()
 	return data
-            
+
+
+def calculate_score(weighting, null_score, s1, s2, score):
+    # return the score given the logical criteria
+    if weighting != 200:
+        return score
+    # not 200 return
+    
+    if null_score == 0:
+        if value1 is not None and value2 is not None:
+            return exact_match(s1,s2) if value1 == value2 else 0
+        return 0
+    
+    if 1 <= null_score <= 100:
+        if value1 is not None and value2 is not None:
+            return exact_match(s1,s2) if value1 == value2 else 0
+        return exact_match(s1,s2)  # This covers both cases: only one populated or both null
+
+    raise Exception("invalid input")
+
+
 def DUNS_score(path_to_data):
     config_dict = load_config("config.csv") # stores all of the config data to be used in weighting and nulls
     # Modifies the data dicitonary to include a score column and adds the scores there
@@ -159,27 +185,11 @@ def DUNS_score(path_to_data):
             dup_field = data[dup_prefix + key] 
             # calculate the score
             # calc score
-            '''
-
-            def calculate_score(weighting, null_score, value1, value2):
-                if weighting != 200:
-                    return "invalid input"
-                
-                if null_score == 0:
-                    if value1 is not None and value2 is not None:
-                        return "match" if value1 == value2 else "no match (total score = 0)"
-                    return "no match (total score = 0)"
-                
-                if 1 <= null_score <= 100:
-                    if value1 is not None and value2 is not None:
-                        return "match" if value1 == value2 else "no match (total score = 0)"
-                    return "match"  # This covers both cases: only one populated or both null
-                
-                return "invalid input"
-            '''
-
-
-            out_dict[key] = JW_score(master_field, dup_field)
+            weighting = config_dict[key][1] 
+            null_score = config_dict[key][0]
+            score = JW_score(master_field, dup_field)
+            score = calculate_score(weighting,null_score,master_field,dup_field,score)
+            out_dict[key] = score 
         # loop over each pair
 # define main
 def main():
