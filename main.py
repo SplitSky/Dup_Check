@@ -114,13 +114,6 @@ def read_csv(file_path):
         for row in csv_reader:
             full_data.append(row)
             # the individual row of data
-    '''
-    structure of dict
-    {
-    field_name : [master_field_value , duplicate_field_value],
-    field_name2: [master_field_value , duplicate_field_value],
-    }
-    '''
     return data
 
 def exact_match(s1, s2):
@@ -128,6 +121,24 @@ def exact_match(s1, s2):
         return 1
     else:
         return 0
+
+def write_csv(file_path, data):
+    if not data:
+        raise ValueError("Data is empty")
+
+    # Extract the header from the keys of the first dictionary
+    headers = data[0].keys()
+
+    with open(file_path, mode='w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=headers)
+
+        # Write the header
+        writer.writeheader()
+
+        # Write the data rows
+        for row in data:
+            writer.writerow(row)
+        file.close()
             
 def load_config(config_path):
 	# Loads the config csv and uses it for data calculations
@@ -167,6 +178,11 @@ def calculate_score(weighting, null_score, s1, s2, score):
 
     raise Exception("invalid input")
 
+def weighted_ratio(config_dict, scores):
+    sum = 0
+    for key, value in scores:
+        sum += config_dict[key][1] * value
+    return sum
 
 def DUNS_score(path_to_data):
     config_dict = load_config("config.csv") # stores all of the config data to be used in weighting and nulls
@@ -174,32 +190,36 @@ def DUNS_score(path_to_data):
     # For pair of fields -> load the csv
     master_prefix = "DSE__DS_Master__r."
     dup_prefix = "DSE__DS_Duplicate__r."
-    data = read_csv(path_to_data)
+    data = read_csv(path_to_data) # array of dictionaries
     out_dict = {}
     for i in range(0,len(data),1): # Each row in data
         print("a") 
         for key in config_dict.keys(): # Each field
             # Fetch master field
-            master_field = data[master_prefix + key]
+            master_field = data[i][master_prefix + key]
             # Fetch duplicate field
-            dup_field = data[dup_prefix + key] 
+            dup_field = data[i][dup_prefix + key] 
             # calculate the score
+            print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field}')
             # calc score
             weighting = config_dict[key][1] 
             null_score = config_dict[key][0]
             score = JW_score(master_field, dup_field)
             score = calculate_score(weighting,null_score,master_field,dup_field,score)
-            out_dict[key] = score 
+            out_dict[key] = score
+
+        # sum all of the scores as a weighted ratio
+        data[i]['score'] = weighted_ratio(config_dict, scores)
         # loop over each pair
+    return out_dict
 # define main
 def main():
-    read_csv("Test_Example.csv")
-
     # import the CSV
+    ######read_csv("Test_Example.csv")
     # import the config weights and null values
         # This is a csv containing all of the editable variables
     # calculate the score for a duplicate pair
     # write the score into a file along with the values from the duplicates
-
+    print(DUNS_score('Test_Example.csv'))
 
 main()
