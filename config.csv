@@ -18,5 +18,5 @@ DSE__DS_First_Name__c,0,0
 DSE__DS_Last_Name__c,0,0
 DSE__DS_Legal_Form__c,0,0
 DSE__DS_Mobile_Phone__c,0,0
-DSE__DS_Name__c,0,100
+DSE__DS_Company_Norm__c,0,100
 DSE__DS_Phone__c,0,0

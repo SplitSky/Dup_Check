@@ -104,15 +104,14 @@ def read_csv(file_path):
     :param file_path: str, path to the CSV file
     :return: list of dictionaries
     """
-    full_data = []
+    data = []
 
-    
     with open(file_path, mode='r', encoding='utf-8-sig') as file:
         # Create a CSV reader object
         csv_reader = csv.DictReader(file)
         # Iterate over each row and append it to the data list
         for row in csv_reader:
-            full_data.append(row)
+            data.append(row)
             # the individual row of data
     return data
 
@@ -159,26 +158,40 @@ def load_config(config_path):
 		file.close()
 	return data
 
+def one_null_check(s1,s2):
+    # Checks whether one or two are null and returns true
+    if (len(s1) == 0 or len(s2) == 0):
+        # one or more is null
+        return True
+    else:
+        return False
 
 def calculate_score(weighting, null_score, s1, s2, score):
     # return the score given the logical criteria
     if weighting != 200:
-        return score
+        # Check for null values
+        # if one or both null then return null score
+        if (one_null_check(s1,s2)):
+            return null_score
+        else:
+            # else return fuzzy match
+            return score
     # not 200 return
     
     if null_score == 0:
-        if value1 is not None and value2 is not None:
-            return exact_match(s1,s2) if value1 == value2 else 0
+        if s1 is not None and s2 is not None:
+            return exact_match(s1,s2) if s1 == s2 else 0
         return 0
     
     if 1 <= null_score <= 100:
-        if value1 is not None and value2 is not None:
-            return exact_match(s1,s2) if value1 == value2 else 0
+        if s1 is not None and s2 is not None:
+            return exact_match(s1,s2) if s1 == s2 else 0
         return exact_match(s1,s2)  # This covers both cases: only one populated or both null
 
-    raise Exception("invalid input")
+    raise Exception("invalid input. Null Score above 100")
 
-def weighted_ratio(config_dict, scores):
+def weighted_ratio(config_dict: dict, scores: dict):
+    # Scores is a dictionary
     sum = 0
     for key, value in scores:
         sum += config_dict[key][1] * value
@@ -191,25 +204,25 @@ def DUNS_score(path_to_data):
     master_prefix = "DSE__DS_Master__r."
     dup_prefix = "DSE__DS_Duplicate__r."
     data = read_csv(path_to_data) # array of dictionaries
-    out_dict = {}
+    
     for i in range(0,len(data),1): # Each row in data
-        print("a") 
+        print("a")
+        out_dict = {}
         for key in config_dict.keys(): # Each field
             # Fetch master field
             master_field = data[i][master_prefix + key]
             # Fetch duplicate field
             dup_field = data[i][dup_prefix + key] 
             # calculate the score
-            print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field}')
-            # calc score
             weighting = config_dict[key][1] 
             null_score = config_dict[key][0]
             score = JW_score(master_field, dup_field)
             score = calculate_score(weighting,null_score,master_field,dup_field,score)
             out_dict[key] = score
+            print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field} - score: {score}')
 
         # sum all of the scores as a weighted ratio
-        data[i]['score'] = weighted_ratio(config_dict, scores)
+        data[i]['score'] = weighted_ratio(config_dict, out_dict)
         # loop over each pair
     return out_dict
 # define main
