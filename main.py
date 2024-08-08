@@ -71,32 +71,26 @@ def jaro_distance(s1, s2) :
 	return ((match / len1 + match / len2 +
 			(match - t) / match ) / 3.0); 
 # Jaro Winkler Similarity 
-def JW_score(s1, s2) : 
-
-	jaro_dist = jaro_distance(s1, s2); 
-
+def JW_score(s1_in, s2_in):
+    s1 = s1_in.upper()
+    s2 = s2_in.upper()
+    jaro_dist = jaro_distance(s1, s2)
 	# If the jaro Similarity is above a threshold 
-	if (jaro_dist > 0.7) :
-
+    if (jaro_dist > 0.7) :
 		# Find the length of common prefix 
-		prefix = 0; 
-
-		for i in range(min(len(s1), len(s2))) :
-		
+        prefix = 0; 
+        for i in range(min(len(s1), len(s2))):
 			# If the characters match 
-			if (s1[i] == s2[i]) :
-				prefix += 1; 
-
+            if (s1[i] == s2[i]):
+                prefix += 1
 			# Else break 
-			else :
-				break; 
-
+            else:
+                break 
 		# Maximum of 4 characters are allowed in prefix 
-		prefix = min(4, prefix); 
-
+            prefix = min(4, prefix); 
 		# Calculate jaro winkler Similarity 
-		jaro_dist += 0.1 * prefix * (1 - jaro_dist); 
-	return jaro_dist; 
+        jaro_dist += 0.1 * prefix * (1 - jaro_dist); 
+    return jaro_dist; 
 
 def read_csv(file_path):
     """
@@ -188,7 +182,7 @@ def calculate_score(weighting, null_score, s1, s2, score, key):
     # return the score given the logical criteria
     # modify the values based on data type
     # change the score comparison from fuzzy to exact if
-    print(f'type={type(weighting)} and value = {weighting}')
+    #print(f'type={type(weighting)} and value = {weighting}')
     if weighting != 2.0:
         # Check for null values
         # if one or both null then return null score
@@ -218,7 +212,7 @@ def weighted_ratio(config_dict: dict, scores: list):
         #print(f'Key - {key} - Value - {value}')
         #print(config_dict[key][1])
         sum += float(config_dict[key][1]) * value
-        #print(f'Weighting score for {key} : {float(config_dict[key][1]) * value}')
+        print(f'Weighting score for {key} : {float(config_dict[key][1]) * value}')
     return sum
 
 def DUNS_score(path_to_data):
@@ -245,6 +239,7 @@ def DUNS_score(path_to_data):
             out_dict[key] = score
             print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field} - score: {score}')
         # sum all of the scores as a weighted ratio
+        print(" ")
         data[i]['score'] = int(weighted_ratio(config_dict, out_dict))
         # loop over each pair
         # reassign out dict
@@ -292,5 +287,13 @@ def main():
                 incorrect_data.append(row)
     print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%'.format())
     # runs the second check on single incorrect record
+    
+    
+    print("Comparing Fuzzy Match")
+    s1 = 'APOGEEITSERVICES'
+    s2 = 'ApogeeITServices'
+    print(JW_score(s1,s2))
+    s2 = s2.upper()
+    print(JW_score(s1,s2))   
     
 main()
