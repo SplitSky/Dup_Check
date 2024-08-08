@@ -166,35 +166,60 @@ def one_null_check(s1,s2):
     else:
         return False
 
-def calculate_score(weighting, null_score, s1, s2, score):
+def check_string_types(s1, s2):
+    def get_type(s):
+        if s.isnumeric():
+            return 1
+        elif s.isalnum():
+            return -1
+        else:
+            return 0
+    return get_type(s1) + get_type(s2)
+
+def check_types_score(key, s1,s2, score):
+    # checks type dependent
+    value = check_string_types(s1,s2)
+    if (key=='DSE__DS_Custom_Field_1__c' or key=='DSE__DS_Custom_Field_2__c'):
+        if (value == 2):
+            return exact_match(s1,s2)            
+        elif (value == -2):
+            return score
+    elif (key=='DSE__DS_Custom_Field_5__c' or key=='DSE__DS_Custom_Field_6__c'):
+        # exact match
+        return exact_match(s1,s2)
+    return score
+
+def calculate_score(weighting, null_score, s1, s2, score, key):
     # return the score given the logical criteria
+    # modify the values based on data type
+    # change the score comparison from fuzzy to exact if
     if weighting != 200:
         # Check for null values
         # if one or both null then return null score
         if (one_null_check(s1,s2)):
             return null_score
         else:
-            # else return fuzzy match
+            # else return fuzzy match or exact match if the data types match
+            score = check_types_score(key, s1,s2, score)
             return score
     # not 200 return
-    
     if null_score == 0:
         if s1 is not None and s2 is not None:
             return exact_match(s1,s2) if s1 == s2 else 0
         return 0
-    
     if 1 <= null_score <= 100:
         if s1 is not None and s2 is not None:
             return exact_match(s1,s2) if s1 == s2 else 0
         return exact_match(s1,s2)  # This covers both cases: only one populated or both null
-
     raise Exception("invalid input. Null Score above 100")
 
-def weighted_ratio(config_dict: dict, scores: dict):
+def weighted_ratio(config_dict: dict, scores: list):
     # Scores is a dictionary
     sum = 0
-    for key, value in scores:
-        sum += config_dict[key][1] * value
+    for key, value in scores.items():
+        #print(f'Key - {key} - Value - {value}')
+        #print(config_dict[key][1])
+        sum += float(config_dict[key][1]) * value
     return sum
 
 def DUNS_score(path_to_data):
@@ -204,9 +229,9 @@ def DUNS_score(path_to_data):
     master_prefix = "DSE__DS_Master__r."
     dup_prefix = "DSE__DS_Duplicate__r."
     data = read_csv(path_to_data) # array of dictionaries
-    
+    ## data_out = []
     for i in range(0,len(data),1): # Each row in data
-        print("a")
+        #print("a")
         out_dict = {}
         for key in config_dict.keys(): # Each field
             # Fetch master field
@@ -214,25 +239,28 @@ def DUNS_score(path_to_data):
             # Fetch duplicate field
             dup_field = data[i][dup_prefix + key] 
             # calculate the score
-            weighting = config_dict[key][1] 
-            null_score = config_dict[key][0]
+            weighting = float(config_dict[key][1]) / 100
+            null_score = float(config_dict[key][0]) / 100 # converting from csv string into int
             score = JW_score(master_field, dup_field)
-            score = calculate_score(weighting,null_score,master_field,dup_field,score)
+            score = calculate_score(weighting,null_score,master_field,dup_field,score, key)
             out_dict[key] = score
-            print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field} - score: {score}')
-
+            #print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field} - score: {score}')
         # sum all of the scores as a weighted ratio
-        data[i]['score'] = weighted_ratio(config_dict, out_dict)
+        data[i]['score'] = int(weighted_ratio(config_dict, out_dict))
         # loop over each pair
-    return out_dict
-# define main
+        # reassign out dict
+        ## data_out.append(out_dict)
+    return data
+
 def main():
     # import the CSV
-    ######read_csv("Test_Example.csv")
     # import the config weights and null values
         # This is a csv containing all of the editable variables
     # calculate the score for a duplicate pair
     # write the score into a file along with the values from the duplicates
-    print(DUNS_score('Test_Example.csv'))
+    data = DUNS_score('Test_Example.csv')
+    for entry in data:
+        print(entry['score'])
+    write_csv('Out_data.csv', data)
 
 main()
