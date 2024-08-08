@@ -90,7 +90,74 @@ def JW_score(s1_in, s2_in):
             prefix = min(4, prefix); 
 		# Calculate jaro winkler Similarity 
         jaro_dist += 0.1 * prefix * (1 - jaro_dist); 
-    return jaro_dist; 
+    return jaro_dist;
+
+    """Prototyping
+    def jaro_distance2(s1, s2):
+    # If the strings are equal 
+    if s1 == s2:
+        return 1.0
+    # Length of two strings 
+    len1 = len(s1)
+    len2 = len(s2)
+    if len1 == 0 or len2 == 0:
+        return 0.0
+    # Maximum distance upto which matching is allowed 
+    max_dist = (max(len1, len2) // 2) - 1
+    # Count of matches 
+    match = 0
+    # Hash for matches 
+    hash_s1 = [0] * len1
+    hash_s2 = [0] * len2
+    # Traverse through the first string 
+    for i in range(len1):
+        # Check if there is any match
+        for j in range(max(0, i - max_dist), min(len2, i + max_dist + 1)):
+            # If there is a match
+            if s1[i] == s2[j] and hash_s2[j] == 0:
+                hash_s1[i] = 1
+                hash_s2[j] = 1
+                match += 1
+                break
+    # If there is no match
+    if match == 0:
+        return 0.0
+    # Number of transpositions
+    t = 0
+    point = 0
+    # Count number of transpositions
+    for i in range(len1):
+        if hash_s1[i]:
+            while hash_s2[point] == 0:
+                point += 1
+            if s1[i] != s2[point]:
+                t += 1
+            point += 1
+    t /= 2
+    # Return the Jaro Similarity
+    return (match / len1 + match / len2 + (match - t) / match) / 3.0
+
+def JW_score2(s1_in, s2_in):
+    s1 = s1_in.upper()
+    s2 = s2_in.upper()
+    jaro_dist = jaro_distance(s1, s2)
+    # If the jaro Similarity is above a threshold 
+    if jaro_dist > 0.7:
+        # Find the length of common prefix 
+        prefix = 0
+        for i in range(min(len(s1), len(s2))):
+            # If the characters match
+            if s1[i] == s2[i]:
+                prefix += 1
+            # Else break
+            else:
+                break
+        # Maximum of 4 characters are allowed in prefix 
+        prefix = min(4, prefix)
+        # Calculate jaro winkler Similarity 
+        jaro_dist += 0.1 * prefix * (1 - jaro_dist)
+    return jaro_dist
+    """
 
 def read_csv(file_path):
     """
@@ -173,9 +240,9 @@ def check_types_score(key, s1,s2, score):
             return exact_match(s1,s2)            
         elif (value == -2):
             return score
-    elif (key=='DSE__DS_Custom_Field_5__c' or key=='DSE__DS_Custom_Field_6__c'):
+    elif (key=='DSE__DS_Custom_Field_5__c' or key=='DSE__DS_Custom_Field_6__c' or key=='DSE__DS_Domain__c'):
         # exact match
-        return exact_match(s1,s2)
+        return exact_match(s1,s2)        
     return score
 
 def calculate_score(weighting, null_score, s1, s2, score, key):
@@ -203,7 +270,7 @@ def calculate_score(weighting, null_score, s1, s2, score, key):
             return 0  # This covers both cases: only one populated or both null
     raise Exception("invalid input. Null Score above 100")
 
-def weighted_ratio(config_dict: dict, scores: list):
+def weighted_ratio(config_dict: dict, scores: list, score_exp: float):
     # Scores is a dictionary
     sum = 0
     for key, value in scores.items():
@@ -213,6 +280,7 @@ def weighted_ratio(config_dict: dict, scores: list):
         #print(config_dict[key][1])
         sum += float(config_dict[key][1]) * value
         print(f'Weighting score for {key} : {float(config_dict[key][1]) * value}')
+    print(f'Expected value: {score_exp} - actual: {sum}')
     return sum
 
 def DUNS_score(path_to_data):
@@ -237,10 +305,10 @@ def DUNS_score(path_to_data):
             score = JW_score(master_field, dup_field)
             score = calculate_score(weighting,null_score,master_field,dup_field,score, key)
             out_dict[key] = score
-            print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field} - score: {score}')
+            #print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field} - score: {score}')
         # sum all of the scores as a weighted ratio
-        print(" ")
-        data[i]['score'] = int(weighted_ratio(config_dict, out_dict))
+        #print(" ")
+        data[i]['score'] = int(weighted_ratio(config_dict, out_dict,float(data[i]['DSE__DS_Score__c'])))
         # loop over each pair
         # reassign out dict
         ## data_out.append(out_dict)
@@ -272,28 +340,24 @@ def main():
                 incorrect += 1
                 incorrect_data.append(row)
     print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%'.format())
-    write_csv('Wrong_Data.csv', incorrect_data)
-    data = DUNS_score('Wrong_Data.csv')
     
-    for row in data:
-        total += 1
-        if len(row['DSE__DS_Score__c']) > 1:
-            temp = float(row['DSE__DS_Score__c'])
-            temp = int(temp)
-            if (int(row['score']) == temp):
-                correct += 1
-            else:
-                incorrect += 1
-                incorrect_data.append(row)
-    print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%'.format())
-    # runs the second check on single incorrect record
-    
-    
-    print("Comparing Fuzzy Match")
-    s1 = 'APOGEEITSERVICES'
-    s2 = 'ApogeeITServices'
-    print(JW_score(s1,s2))
-    s2 = s2.upper()
-    print(JW_score(s1,s2))   
+    if (incorrect != 0):
+        print("There are some records which got marked as wrong")
+        print("Writing to csv ... ")
+        write_csv('Wrong_Data.csv', incorrect_data)
+#   data = DUNS_score('Wrong_Data.csv')
+#
+#   for row in data:
+#       total += 1
+#       if len(row['DSE__DS_Score__c']) > 1:
+#           temp = float(row['DSE__DS_Score__c'])
+#           temp = int(temp)
+#           if (int(row['score']) == temp):
+#               correct += 1
+#           else:
+#               incorrect += 1
+#               incorrect_data.append(row)
+#   print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%'.format())
+#   # runs the second check on single incorrect record
     
 main()
