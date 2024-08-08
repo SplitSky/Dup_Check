@@ -147,20 +147,15 @@ def load_config(config_path):
 		# Create a CSV reader object
 		csv_reader = csv.DictReader(file)
 		# Iterate over each row and append it to the data list
-		first = True
 		for row in csv_reader:
-			if first:
-				first = False
-			else:
-				# compile the row: key : [null, weighting]
-				data[row['Name']] = [row['null_score'], row['weighting_score']]
-		print(data)
+			# compile the row: key : [null, weighting]
+			data[row['Name']] = [row['null_score'], row['weighting_score']]
 		file.close()
 	return data
 
 def one_null_check(s1,s2):
     # Checks whether one or two are null and returns true
-    if (len(s1) == 0 or len(s2) == 0):
+    if (len(s1) < 1 or len(s2) < 1):
         # one or more is null
         return True
     else:
@@ -193,7 +188,8 @@ def calculate_score(weighting, null_score, s1, s2, score, key):
     # return the score given the logical criteria
     # modify the values based on data type
     # change the score comparison from fuzzy to exact if
-    if weighting != 200:
+    print(f'type={type(weighting)} and value = {weighting}')
+    if weighting != 2.0:
         # Check for null values
         # if one or both null then return null score
         if (one_null_check(s1,s2)):
@@ -202,24 +198,27 @@ def calculate_score(weighting, null_score, s1, s2, score, key):
             # else return fuzzy match or exact match if the data types match
             score = check_types_score(key, s1,s2, score)
             return score
-    # not 200 return
-    if null_score == 0:
-        if s1 is not None and s2 is not None:
-            return exact_match(s1,s2) if s1 == s2 else 0
-        return 0
-    if 1 <= null_score <= 100:
-        if s1 is not None and s2 is not None:
-            return exact_match(s1,s2) if s1 == s2 else 0
-        return exact_match(s1,s2)  # This covers both cases: only one populated or both null
+    else:
+        if null_score == 0:
+            if s1 is not None and s2 is not None:
+                return 0 if s1 == s2 else -1
+            return -1
+        if 1 <= null_score <= 100:
+            if s1 is not None and s2 is not None:
+                return 0 if s1 == s2 else -1
+            return 0  # This covers both cases: only one populated or both null
     raise Exception("invalid input. Null Score above 100")
 
 def weighted_ratio(config_dict: dict, scores: list):
     # Scores is a dictionary
     sum = 0
     for key, value in scores.items():
+        if (value < 0):
+            return 0 # invalid matching by 200 weighting field
         #print(f'Key - {key} - Value - {value}')
         #print(config_dict[key][1])
         sum += float(config_dict[key][1]) * value
+        #print(f'Weighting score for {key} : {float(config_dict[key][1]) * value}')
     return sum
 
 def DUNS_score(path_to_data):
@@ -244,7 +243,7 @@ def DUNS_score(path_to_data):
             score = JW_score(master_field, dup_field)
             score = calculate_score(weighting,null_score,master_field,dup_field,score, key)
             out_dict[key] = score
-            #print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field} - score: {score}')
+            print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field} - score: {score}')
         # sum all of the scores as a weighted ratio
         data[i]['score'] = int(weighted_ratio(config_dict, out_dict))
         # loop over each pair
@@ -259,8 +258,39 @@ def main():
     # calculate the score for a duplicate pair
     # write the score into a file along with the values from the duplicates
     data = DUNS_score('Test_Example.csv')
-    for entry in data:
-        print(entry['score'])
+    print(len(data))
     write_csv('Out_data.csv', data)
 
+    # check the validity of the checks
+    correct = 0
+    incorrect = 0
+    total = 0
+    incorrect_data = []
+    for row in data:
+        total += 1
+        if len(row['DSE__DS_Score__c']) > 1:
+            temp = float(row['DSE__DS_Score__c'])
+            temp = int(temp)
+            if (int(row['score']) == temp):
+                correct += 1
+            else:
+                incorrect += 1
+                incorrect_data.append(row)
+    print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%'.format())
+    write_csv('Wrong_Data.csv', incorrect_data)
+    data = DUNS_score('Wrong_Data.csv')
+    
+    for row in data:
+        total += 1
+        if len(row['DSE__DS_Score__c']) > 1:
+            temp = float(row['DSE__DS_Score__c'])
+            temp = int(temp)
+            if (int(row['score']) == temp):
+                correct += 1
+            else:
+                incorrect += 1
+                incorrect_data.append(row)
+    print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%'.format())
+    # runs the second check on single incorrect record
+    
 main()
