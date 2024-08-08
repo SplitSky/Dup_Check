@@ -1,5 +1,9 @@
 import csv
 from math import floor
+from jarowinkler import jarowinkler_similarity
+
+
+
 
 '''
 Requirements:
@@ -72,8 +76,8 @@ def jaro_distance(s1, s2) :
 			(match - t) / match ) / 3.0); 
 # Jaro Winkler Similarity 
 def JW_score(s1_in, s2_in):
-    s1 = s1_in.upper()
-    s2 = s2_in.upper()
+    s1 = s1_in#.upper()
+    s2 = s2_in#.upper()
     jaro_dist = jaro_distance(s1, s2)
 	# If the jaro Similarity is above a threshold 
     if (jaro_dist > 0.7) :
@@ -89,11 +93,11 @@ def JW_score(s1_in, s2_in):
 		# Maximum of 4 characters are allowed in prefix 
             prefix = min(4, prefix); 
 		# Calculate jaro winkler Similarity 
-        jaro_dist += 0.1 * prefix * (1 - jaro_dist); 
-    return jaro_dist;
+        jaro_dist += 0.1 * prefix * (1 - jaro_dist); # 0.1
+    return jaro_dist
 
-    """Prototyping
-    def jaro_distance2(s1, s2):
+    #Prototyping
+def jaro_distance2(s1, s2):
     # If the strings are equal 
     if s1 == s2:
         return 1.0
@@ -137,12 +141,12 @@ def JW_score(s1_in, s2_in):
     # Return the Jaro Similarity
     return (match / len1 + match / len2 + (match - t) / match) / 3.0
 
-def JW_score2(s1_in, s2_in):
+def JW_score2(s1_in, s2_in, variable1=0.1, variable2=4, variable3=0.7):
     s1 = s1_in.upper()
     s2 = s2_in.upper()
     jaro_dist = jaro_distance(s1, s2)
     # If the jaro Similarity is above a threshold 
-    if jaro_dist > 0.7:
+    if jaro_dist > variable3:
         # Find the length of common prefix 
         prefix = 0
         for i in range(min(len(s1), len(s2))):
@@ -153,11 +157,11 @@ def JW_score2(s1_in, s2_in):
             else:
                 break
         # Maximum of 4 characters are allowed in prefix 
-        prefix = min(4, prefix)
+        prefix = min(variable2, prefix)
         # Calculate jaro winkler Similarity 
-        jaro_dist += 0.1 * prefix * (1 - jaro_dist)
+        jaro_dist += variable1 * prefix * (1 - jaro_dist)
     return jaro_dist
-    """
+    
 
 def read_csv(file_path):
     """
@@ -237,7 +241,7 @@ def check_types_score(key, s1,s2, score):
     value = check_string_types(s1,s2)
     if (key=='DSE__DS_Custom_Field_1__c' or key=='DSE__DS_Custom_Field_2__c'):
         if (value == 2):
-            return exact_match(s1,s2)            
+            return exact_match(s1,s2)
         elif (value == -2):
             return score
     elif (key=='DSE__DS_Custom_Field_5__c' or key=='DSE__DS_Custom_Field_6__c' or key=='DSE__DS_Domain__c'):
@@ -302,7 +306,7 @@ def DUNS_score(path_to_data):
             # calculate the score
             weighting = float(config_dict[key][1]) / 100
             null_score = float(config_dict[key][0]) / 100 # converting from csv string into int
-            score = JW_score(master_field, dup_field)
+            score = jarowinkler_similarity(master_field.upper(), dup_field.upper())
             score = calculate_score(weighting,null_score,master_field,dup_field,score, key)
             out_dict[key] = score
             #print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field} - score: {score}')
@@ -322,7 +326,7 @@ def main():
     # write the score into a file along with the values from the duplicates
     data = DUNS_score('Test_Example.csv')
     print(len(data))
-    write_csv('Out_data.csv', data)
+    write_csv('Out_data.csv', data)#
 
     # check the validity of the checks
     correct = 0
@@ -340,11 +344,11 @@ def main():
                 incorrect += 1
                 incorrect_data.append(row)
     print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%'.format())
-    
-    if (incorrect != 0):
-        print("There are some records which got marked as wrong")
-        print("Writing to csv ... ")
-        write_csv('Wrong_Data.csv', incorrect_data)
+ #   
+ #   if (incorrect != 0):
+ #       print("There are some records which got marked as wrong")
+ #       print("Writing to csv ... ")
+ #      write_csv('Wrong_Data.csv', incorrect_data)
 #   data = DUNS_score('Wrong_Data.csv')
 #
 #   for row in data:
@@ -359,5 +363,20 @@ def main():
 #               incorrect_data.append(row)
 #   print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%'.format())
 #   # runs the second check on single incorrect record
+    
+  #  s1 = 'Dr. Boehringer-Gasse 5-11'
+  #  s2 = 'Belghofergasse 15'
+  #  print(JW_score2(s1,s2, 0.1, 2, 0.7))
+#
+  #  print(jarowinkler_similarity(s1,s2))
+    
+    s1 = '320 S Tryon St Ste 213'
+    s2 = '320 S. TRYON STREET, SUITE 213'
+    
+    print(len(s1))
+    print(len(s2))
+    print(jarowinkler_similarity(s1,s2,score_cutoff=0.9))
+    print(0.9*JW_score(s1,s2))
+    print(JW_score2(s1,s2, 1000,4,1)) # TODO : check what those variables are
     
 main()
