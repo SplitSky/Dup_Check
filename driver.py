@@ -1,10 +1,9 @@
 import csv
 from math import floor
 from jarowinkler import jarowinkler_similarity
-
-
-
-
+import re
+import numpy as np
+import fuzzy as fz
 '''
 Requirements:
 1. Must be able to calculate the duplicate score for Duplicate Account entity
@@ -15,6 +14,7 @@ fields from the Master Beans
 5. must be able to handle fuzzy logic (field dependent) - Calculate JW distance Jaro-Winkler similarity
 6. Must be able to utilise weighting and null score input parameters
 '''
+differences = []
 
 # Function to calculate the 
 # Jaro Similarity of two strings 
@@ -76,8 +76,10 @@ def jaro_distance(s1, s2) :
 			(match - t) / match ) / 3.0); 
 # Jaro Winkler Similarity 
 def JW_score(s1_in, s2_in):
-    s1 = s1_in#.upper()
-    s2 = s2_in#.upper()
+    print(f'before processed strings: {s1_in} and {s2_in}')
+    s1 = pre_process_string(s1_in)
+    s2 = pre_process_string(s2_in)
+    print(f' processed strings: {s1} and {s2}')
     jaro_dist = jaro_distance(s1, s2)
 	# If the jaro Similarity is above a threshold 
     if (jaro_dist > 0.7) :
@@ -91,77 +93,40 @@ def JW_score(s1_in, s2_in):
             else:
                 break 
 		# Maximum of 4 characters are allowed in prefix 
+            prefix = min(0, prefix); 
+		# Calculate jaro winkler Similarity 
+        jaro_dist += 0.1 * prefix * (1 - jaro_dist); # 0.1
+    return jaro_dist
+
+def JW_score2(s1_in, s2_in, variable_1, variable_2,):
+    print(f'before processed strings: {s1} and {s2}')
+    s1 = pre_process_string(s1_in)
+    s2 = pre_process_string(s2_in)
+    print(f' processed strings: {s1} and {s2}')
+    
+    jaro_dist = jaro_distance(s1, s2)
+	# If the jaro Similarity is above a threshold 
+    if (jaro_dist > 0.7) :
+		# Find the length of common prefix 
+        prefix = 0; 
+        for i in range(min(len(s1), len(s2))):
+			# If the characters match 
+            if (s1[i] == s2[i]):
+                prefix += 1
+			# Else break
+            else:
+                break 
+		# Maximum of 4 characters are allowed in prefix 
             prefix = min(4, prefix); 
 		# Calculate jaro winkler Similarity 
         jaro_dist += 0.1 * prefix * (1 - jaro_dist); # 0.1
     return jaro_dist
 
-    #Prototyping
-def jaro_distance2(s1, s2):
-    # If the strings are equal 
-    if s1 == s2:
-        return 1.0
-    # Length of two strings 
-    len1 = len(s1)
-    len2 = len(s2)
-    if len1 == 0 or len2 == 0:
-        return 0.0
-    # Maximum distance upto which matching is allowed 
-    max_dist = (max(len1, len2) // 2) - 1
-    # Count of matches 
-    match = 0
-    # Hash for matches 
-    hash_s1 = [0] * len1
-    hash_s2 = [0] * len2
-    # Traverse through the first string 
-    for i in range(len1):
-        # Check if there is any match
-        for j in range(max(0, i - max_dist), min(len2, i + max_dist + 1)):
-            # If there is a match
-            if s1[i] == s2[j] and hash_s2[j] == 0:
-                hash_s1[i] = 1
-                hash_s2[j] = 1
-                match += 1
-                break
-    # If there is no match
-    if match == 0:
-        return 0.0
-    # Number of transpositions
-    t = 0
-    point = 0
-    # Count number of transpositions
-    for i in range(len1):
-        if hash_s1[i]:
-            while hash_s2[point] == 0:
-                point += 1
-            if s1[i] != s2[point]:
-                t += 1
-            point += 1
-    t /= 2
-    # Return the Jaro Similarity
-    return (match / len1 + match / len2 + (match - t) / match) / 3.0
-
-def JW_score2(s1_in, s2_in, variable1=0.1, variable2=4, variable3=0.7):
-    s1 = s1_in.upper()
-    s2 = s2_in.upper()
-    jaro_dist = jaro_distance(s1, s2)
-    # If the jaro Similarity is above a threshold 
-    if jaro_dist > variable3:
-        # Find the length of common prefix 
-        prefix = 0
-        for i in range(min(len(s1), len(s2))):
-            # If the characters match
-            if s1[i] == s2[i]:
-                prefix += 1
-            # Else break
-            else:
-                break
-        # Maximum of 4 characters are allowed in prefix 
-        prefix = min(variable2, prefix)
-        # Calculate jaro winkler Similarity 
-        jaro_dist += variable1 * prefix * (1 - jaro_dist)
-    return jaro_dist
-    
+def pre_process_string(s_in):
+    s1 = s_in.upper() # capitalise
+    # remove non alpha numeric characters for fuzzy matching using regex
+    #s1 = re.sub(r'[^A-Za-z0-9]', '', s1)
+    return s1
 
 def read_csv(file_path):
     """
@@ -274,7 +239,7 @@ def calculate_score(weighting, null_score, s1, s2, score, key):
             return 0  # This covers both cases: only one populated or both null
     raise Exception("invalid input. Null Score above 100")
 
-def weighted_ratio(config_dict: dict, scores: list, score_exp: float):
+def weighted_ratio(config_dict: dict, scores: list, score_exp: str):
     # Scores is a dictionary
     sum = 0
     for key, value in scores.items():
@@ -283,8 +248,9 @@ def weighted_ratio(config_dict: dict, scores: list, score_exp: float):
         #print(f'Key - {key} - Value - {value}')
         #print(config_dict[key][1])
         sum += float(config_dict[key][1]) * value
-        print(f'Weighting score for {key} : {float(config_dict[key][1]) * value}')
-    print(f'Expected value: {score_exp} - actual: {sum}')
+        ##print(f'Weighting score for {key} : {float(config_dict[key][1]) * value}')
+     #print(f'Expected value: {score_exp} - actual: {sum}')
+    differences.append(float(score_exp) - sum)
     return sum
 
 def DUNS_score(path_to_data):
@@ -306,19 +272,26 @@ def DUNS_score(path_to_data):
             # calculate the score
             weighting = float(config_dict[key][1]) / 100
             null_score = float(config_dict[key][0]) / 100 # converting from csv string into int
-            score = jarowinkler_similarity(master_field.upper(), dup_field.upper())
+            # score = jarowinkler_similarity(master_field.upper(), dup_field.upper())
+            score = JW_score(master_field, dup_field)
+            print(master_field)
+            print(dup_field)
+            # score = fz.custom_fuzzy_match(master_field, dup_field)
+            print(i)
             score = calculate_score(weighting,null_score,master_field,dup_field,score, key)
             out_dict[key] = score
             #print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field} - score: {score}')
         # sum all of the scores as a weighted ratio
         #print(" ")
-        data[i]['score'] = int(weighted_ratio(config_dict, out_dict,float(data[i]['DSE__DS_Score__c'])))
+        data[i]['score'] = int(weighted_ratio(config_dict, out_dict,data[i]['DSE__DS_Score__c']))
+        data[i]['score2'] = int(weighted_ratio(config_dict, out_dict,data[i]['DSE__DS_Score__c']))
         # loop over each pair
         # reassign out dict
         ## data_out.append(out_dict)
     return data
 
-def main():
+def driver():
+    Score_Matching = []
     # import the CSV
     # import the config weights and null values
         # This is a csv containing all of the editable variables
@@ -344,39 +317,12 @@ def main():
                 incorrect += 1
                 incorrect_data.append(row)
     print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%'.format())
- #   
- #   if (incorrect != 0):
- #       print("There are some records which got marked as wrong")
- #       print("Writing to csv ... ")
- #      write_csv('Wrong_Data.csv', incorrect_data)
-#   data = DUNS_score('Wrong_Data.csv')
-#
-#   for row in data:
-#       total += 1
-#       if len(row['DSE__DS_Score__c']) > 1:
-#           temp = float(row['DSE__DS_Score__c'])
-#           temp = int(temp)
-#           if (int(row['score']) == temp):
-#               correct += 1
-#           else:
-#               incorrect += 1
-#               incorrect_data.append(row)
-#   print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%'.format())
-#   # runs the second check on single incorrect record
+    Score_Matching = [int(correct/total * 100), int(incorrect/total * 100), np.array(differences).sum()/len(differences), np.std(np.array(differences)), np.max(np.array(differences))]
     
-  #  s1 = 'Dr. Boehringer-Gasse 5-11'
-  #  s2 = 'Belghofergasse 15'
-  #  print(JW_score2(s1,s2, 0.1, 2, 0.7))
-#
-  #  print(jarowinkler_similarity(s1,s2))
-    
-    s1 = '320 S Tryon St Ste 213'
-    s2 = '320 S. TRYON STREET, SUITE 213'
-    
-    print(len(s1))
-    print(len(s2))
-    print(jarowinkler_similarity(s1,s2,score_cutoff=0.9))
-    print(0.9*JW_score(s1,s2))
-    print(JW_score2(s1,s2, 1000,4,1)) # TODO : check what those variables are
-    
-main()
+    if (incorrect != 0):
+        print("There are some records which got marked as wrong")
+        print("Writing to csv ... ")
+        write_csv('Wrong_Data.csv', incorrect_data)
+    return Score_Matching
+
+print(driver())
