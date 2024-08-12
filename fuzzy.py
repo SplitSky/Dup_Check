@@ -54,7 +54,7 @@ def custom_fuzzy_match(s1, s2):
     similarity_score = match_tokens(phonetic_tokens1, phonetic_tokens2)
     
     # Step 4: Custom scoring adjustment (mimicking the low score behavior)
-    adjusted_score = int(similarity_score * 100)  # Adjust to scale similar to 31/100
+    adjusted_score = int(similarity_score)  # Adjust to scale similar to 31/100
     
     return adjusted_score
 

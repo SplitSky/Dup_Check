@@ -4,6 +4,9 @@ from jarowinkler import jarowinkler_similarity
 import re
 import numpy as np
 import fuzzy as fz
+import pandas as pd
+import matplotlib.pyplot as plt
+
 '''
 Requirements:
 1. Must be able to calculate the duplicate score for Duplicate Account entity
@@ -15,6 +18,8 @@ fields from the Master Beans
 6. Must be able to utilise weighting and null score input parameters
 '''
 differences = []
+exp_differences = []
+exp_scores = []
 
 # Function to calculate the 
 # Jaro Similarity of two strings 
@@ -76,10 +81,8 @@ def jaro_distance(s1, s2) :
 			(match - t) / match ) / 3.0); 
 # Jaro Winkler Similarity 
 def JW_score(s1_in, s2_in):
-    print(f'before processed strings: {s1_in} and {s2_in}')
     s1 = pre_process_string(s1_in)
     s2 = pre_process_string(s2_in)
-    print(f' processed strings: {s1} and {s2}')
     jaro_dist = jaro_distance(s1, s2)
 	# If the jaro Similarity is above a threshold 
     if (jaro_dist > 0.7) :
@@ -95,7 +98,7 @@ def JW_score(s1_in, s2_in):
 		# Maximum of 4 characters are allowed in prefix 
             prefix = min(0, prefix); 
 		# Calculate jaro winkler Similarity 
-        jaro_dist += 0.1 * prefix * (1 - jaro_dist); # 0.1
+        jaro_dist += 0.0 * prefix * (1 - jaro_dist); # 0.1
     return jaro_dist
 
 def JW_score2(s1_in, s2_in, variable_1, variable_2,):
@@ -123,7 +126,7 @@ def JW_score2(s1_in, s2_in, variable_1, variable_2,):
     return jaro_dist
 
 def pre_process_string(s_in):
-    s1 = s_in.upper() # capitalise
+    s1 = str(s_in).upper() # capitalise
     # remove non alpha numeric characters for fuzzy matching using regex
     #s1 = re.sub(r'[^A-Za-z0-9]', '', s1)
     return s1
@@ -143,6 +146,20 @@ def read_csv(file_path):
         for row in csv_reader:
             data.append(row)
             # the individual row of data
+    return data
+
+def read_excel(file_path):
+    """
+    Reads an Excel file into a list of dictionaries for data management.
+    :param file_path: str, path to the Excel file
+    :return: list of dictionaries
+    """
+    # Read the Excel file into a DataFrame
+    df = pd.read_excel(file_path, dtype=str)
+    # Convert the DataFrame to a list of dictionaries
+    df = df.fillna('')
+    data = df.to_dict(orient='records')
+
     return data
 
 def exact_match(s1, s2):
@@ -211,10 +228,12 @@ def check_types_score(key, s1,s2, score):
             return score
     elif (key=='DSE__DS_Custom_Field_5__c' or key=='DSE__DS_Custom_Field_6__c' or key=='DSE__DS_Domain__c'):
         # exact match
-        return exact_match(s1,s2)        
+        return exact_match(s1,s2)
     return score
 
-def calculate_score(weighting, null_score, s1, s2, score, key):
+def calculate_score(weighting, null_score, s1_in, s2_in, score, key):
+    s1 = str(s1_in)
+    s2 = str(s2_in)
     # return the score given the logical criteria
     # modify the values based on data type
     # change the score comparison from fuzzy to exact if
@@ -239,7 +258,7 @@ def calculate_score(weighting, null_score, s1, s2, score, key):
             return 0  # This covers both cases: only one populated or both null
     raise Exception("invalid input. Null Score above 100")
 
-def weighted_ratio(config_dict: dict, scores: list, score_exp: str):
+def weighted_ratio(config_dict: dict, scores: list, score_exp: str, row: dict):
     # Scores is a dictionary
     sum = 0
     for key, value in scores.items():
@@ -250,7 +269,14 @@ def weighted_ratio(config_dict: dict, scores: list, score_exp: str):
         sum += float(config_dict[key][1]) * value
         ##print(f'Weighting score for {key} : {float(config_dict[key][1]) * value}')
      #print(f'Expected value: {score_exp} - actual: {sum}')
-    differences.append(float(score_exp) - sum)
+    
+
+    #if (float(score_exp) - sum < 0):
+    # print(row)
+    differences.append(sum)
+    exp_differences.append(float(score_exp) - sum)
+    exp_scores.append(float(score_exp))
+    print(score_exp)
     return sum
 
 def DUNS_score(path_to_data):
@@ -259,7 +285,7 @@ def DUNS_score(path_to_data):
     # For pair of fields -> load the csv
     master_prefix = "DSE__DS_Master__r."
     dup_prefix = "DSE__DS_Duplicate__r."
-    data = read_csv(path_to_data) # array of dictionaries
+    data = read_excel(path_to_data) # array of dictionaries
     ## data_out = []
     for i in range(0,len(data),1): # Each row in data
         #print("a")
@@ -272,23 +298,32 @@ def DUNS_score(path_to_data):
             # calculate the score
             weighting = float(config_dict[key][1]) / 100
             null_score = float(config_dict[key][0]) / 100 # converting from csv string into int
-            # score = jarowinkler_similarity(master_field.upper(), dup_field.upper())
+            #score = jarowinkler_similarity(master_field, dup_field)
             score = JW_score(master_field, dup_field)
-            print(master_field)
-            print(dup_field)
+            if score != 1.0:
+                score *= 0.7
+                
             # score = fz.custom_fuzzy_match(master_field, dup_field)
-            print(i)
             score = calculate_score(weighting,null_score,master_field,dup_field,score, key)
             out_dict[key] = score
             #print(f'Key: {key} -Fields: Master - {master_field} - Dup - {dup_field} - score: {score}')
         # sum all of the scores as a weighted ratio
         #print(" ")
-        data[i]['score'] = int(weighted_ratio(config_dict, out_dict,data[i]['DSE__DS_Score__c']))
-        data[i]['score2'] = int(weighted_ratio(config_dict, out_dict,data[i]['DSE__DS_Score__c']))
+        data[i]['score'] = int(weighted_ratio(config_dict, out_dict,data[i]['DSE__DS_Score__c'], data[i]))
         # loop over each pair
         # reassign out dict
         ## data_out.append(out_dict)
     return data
+
+
+def plot_histogram(data, bins=100, title='Histogram', xlabel='Values', ylabel='Frequency', color='blue'):
+    plt.figure(figsize=(8, 6))
+    plt.hist(data, bins=bins, color=color, edgecolor='black')
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid(True)
+    plt.show()
 
 def driver():
     Score_Matching = []
@@ -297,10 +332,9 @@ def driver():
         # This is a csv containing all of the editable variables
     # calculate the score for a duplicate pair
     # write the score into a file along with the values from the duplicates
-    data = DUNS_score('Test_Example.csv')
+    data = DUNS_score('DUNS_data.xlsx')
     print(len(data))
-    write_csv('Out_data.csv', data)#
-
+    write_csv('FINAL.csv',data)
     # check the validity of the checks
     correct = 0
     incorrect = 0
@@ -310,19 +344,35 @@ def driver():
         total += 1
         if len(row['DSE__DS_Score__c']) > 1:
             temp = float(row['DSE__DS_Score__c'])
-            temp = int(temp)
-            if (int(row['score']) == temp):
+            if (float(row['score']) == temp):
                 correct += 1
             else:
                 incorrect += 1
                 incorrect_data.append(row)
+    print(f'corr ={correct} and incc = {incorrect}')
     print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%'.format())
     Score_Matching = [int(correct/total * 100), int(incorrect/total * 100), np.array(differences).sum()/len(differences), np.std(np.array(differences)), np.max(np.array(differences))]
     
-    if (incorrect != 0):
-        print("There are some records which got marked as wrong")
-        print("Writing to csv ... ")
-        write_csv('Wrong_Data.csv', incorrect_data)
-    return Score_Matching
+    stats_data =np.array(differences)
+    a = np.array(exp_differences)
+    print(f'mean = {stats_data.mean()}')
+    print(f'max = {stats_data.max()}')
+    print(f'min = {stats_data.min()}')
+    print(f'std = {np.std(stats_data)}')
+    print(f'mean diff = {a.mean()}')
+    print(f'max diff = {a.max()}')
+    print(f'min diff = {a.min()}')
+    print(f'std diff = {np.std(a)}')
+    print(f'len= {len(a.tolist())}')
+    
+    plot_histogram(stats_data)
+    
+
+    
+    #if (incorrect != 0):
+    #    print("There are some records which got marked as wrong")
+    #    print("Writing to csv ... ")
+    #    write_csv('Wrong_Data.csv', incorrect_data)
+    #return Score_Matching
 
 print(driver())
