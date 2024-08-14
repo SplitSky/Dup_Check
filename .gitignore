@@ -1,7 +1,9 @@
 # Compiled class file
 Processed_Data
 *.class
-
+*.xlsx
+/.DS_Store
+*.csv
 # Log file
 *.log
 
