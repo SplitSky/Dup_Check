@@ -5,6 +5,7 @@ import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import fuzzy as fz
 
 differences = []
 exp_differences = []
@@ -141,16 +142,31 @@ def calculate_score(weighting, null_score, s1_in, s2_in, score, key):
             return 0 if s1 == s2 else -1
     raise Exception("Invalid input. Null Score above 100")
 
+def append_to_log(text_to_append):
+    with open("Driver_log.txt", 'a') as file:
+        file.write(text_to_append + '\n')
+
 def weighted_ratio(config_dict, scores, score_exp, row):
     total_score = 0
+    #append_to_log('Adding scores for record: ' + row['Id'])
     for key, value in scores.items():
-        if value < 0:
+        if value < 0: # negative values indicate the 200 weighting fields.
+            # dictate whether it's allowed but don't count towards the score
             return 0
+        master_prefix = "DSE__DS_Master__r." # TODO: change . to _
+        dup_prefix = "DSE__DS_Duplicate__r."
+        master_field = row[master_prefix + key]
+        dup_field = row[dup_prefix + key]
+        #append_to_log(f'Key: {key} - Value {value} - master: {master_field} - dup: {dup_field}')
         total_score += float(config_dict[key][1]) * value
 
     differences.append(total_score)
-    exp_differences.append(float(score_exp) - total_score)
-    exp_scores.append(float(score_exp))
+    if (len(score_exp) != 0):
+        exp_differences.append(float(score_exp) - total_score)
+        exp_scores.append(float(score_exp))
+    else:
+        exp_differences.append(total_score)
+    
 
     return total_score
 
@@ -177,7 +193,7 @@ def DUNS_score(path_to_data):
 
     return data
 
-def plot_histogram(data, bins=100, title='Histogram', xlabel='Values', ylabel='Frequency', color='blue'):
+def plot_histogram(data, bins=1000, title='Histogram', xlabel='Values', ylabel='Frequency', color='blue'):
     plt.figure(figsize=(8, 6))
     plt.hist(data, bins=bins, color=color, edgecolor='black')
     plt.title(title)

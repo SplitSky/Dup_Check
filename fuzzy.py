@@ -2,6 +2,8 @@ import re
 from jellyfish import soundex
 from jarowinkler import jarowinkler_similarity
 from itertools import product
+import json
+import csv
 
 def normalize_string(s):
     """Normalize the string by lowercasing, removing punctuation and splitting into tokens."""
@@ -9,6 +11,31 @@ def normalize_string(s):
     s = re.sub(r'[^\w\s]', '', s)  # Remove punctuation
     tokens = s.split()
     return tokens
+
+def json_to_csv(json_file, csv_file):
+    # Open the JSON file and load the data
+    with open(json_file, 'r') as f:
+        data = json.load(f)
+
+    # Open the CSV file for writing
+    with open(csv_file, 'w', newline='') as f:
+        # Create a CSV writer object
+        writer = csv.writer(f)
+
+        # If the JSON data is a list of dictionaries, write the header and data rows
+        if isinstance(data, list) and all(isinstance(item, dict) for item in data):
+            # Extract the header from the keys of the first dictionary
+            header = data[0].keys()
+            writer.writerow(header)
+
+            # Write each dictionary as a row in the CSV file
+            for row in data:
+                writer.writerow(row.values())
+        else:
+            raise ValueError("JSON data must be a list of dictionaries")
+
+    print(f"Data successfully written to {csv_file}")
+
 
 def phonetic_representation(tokens):
     """Convert tokens to their phonetic representation using Soundex."""
