@@ -167,7 +167,6 @@ def weighted_ratio(config_dict, scores, score_exp, row):
     else:
         exp_differences.append(total_score)
     
-
     return total_score
 
 def DUNS_score(path_to_data):
