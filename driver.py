@@ -146,6 +146,12 @@ def append_to_log(text_to_append):
     with open("Driver_log.txt", 'a') as file:
         file.write(text_to_append + '\n')
 
+def write_excel(file_path, data):
+    if not data:
+        raise ValueError("Data is empty")
+    df = pd.DataFrame(data)
+    df.to_excel(file_path, index=False)
+
 def weighted_ratio(config_dict, scores, score_exp, row):
     total_score = 0
     #append_to_log('Adding scores for record: ' + row['Id'])
@@ -204,6 +210,7 @@ def plot_histogram(data, bins=1000, title='Histogram', xlabel='Values', ylabel='
 def driver():
     data = DUNS_score('DUNS_data.xlsx')
     write_csv('FINAL.csv', data)
+    write_excel('FINAL.xlsx', data)
     
     correct, incorrect, total = 0, 0, 0
     incorrect_data = []
