@@ -1,17 +1,17 @@
 import csv
-from math import floor
 from jarowinkler import jarowinkler_similarity
-import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import fuzzy as fz
+# import fuzzy as fz
 
 differences = []
 exp_differences = []
 exp_scores = []
 
 # Function to calculate the Jaro Similarity of two strings
+
+
 def jaro_distance(s1, s2):
     if s1 == s2:
         return 1.0
@@ -50,6 +50,8 @@ def jaro_distance(s1, s2):
     return (match / len1 + match / len2 + (match - t) / match) / 3.0
 
 # Jaro-Winkler Similarity
+
+
 def JW_score(s1_in, s2_in):
     s1 = pre_process_string(s1_in)
     s2 = pre_process_string(s2_in)
@@ -64,11 +66,12 @@ def JW_score(s1_in, s2_in):
                 break
         prefix = min(4, prefix)
         jaro_dist += 0.1 * prefix * (1 - jaro_dist)
-    
     return jaro_dist
+
 
 def pre_process_string(s_in):
     return str(s_in).upper()
+
 
 def read_csv(file_path):
     data = []
@@ -78,13 +81,17 @@ def read_csv(file_path):
             data.append(row)
     return data
 
+
 def read_excel(file_path):
     df = pd.read_excel(file_path, dtype=str)
     df = df.fillna('')
+    # print(f'dataframe size{df.head(20)} \n')
     return df.to_dict(orient='records')
+
 
 def exact_match(s1, s2):
     return 1 if s1 == s2 else 0
+
 
 def write_csv(file_path, data):
     if not data:
@@ -96,6 +103,7 @@ def write_csv(file_path, data):
         for row in data:
             writer.writerow(row)
 
+
 def load_config(config_path):
     data = {}
     with open(config_path, mode='r', encoding='utf-8-sig') as file:
@@ -104,8 +112,10 @@ def load_config(config_path):
             data[row['Name']] = [row['null_score'], row['weighting_score']]
     return data
 
+
 def one_null_check(s1, s2):
     return len(s1) < 1 or len(s2) < 1
+
 
 def check_string_types(s1, s2):
     def get_type(s):
@@ -117,6 +127,7 @@ def check_string_types(s1, s2):
             return 0
     return get_type(s1) + get_type(s2)
 
+
 def check_types_score(key, s1, s2, score):
     value = check_string_types(s1, s2)
     if key in ['DSE__DS_Custom_Field_1__c', 'DSE__DS_Custom_Field_2__c']:
@@ -124,9 +135,12 @@ def check_types_score(key, s1, s2, score):
             return exact_match(s1, s2)
         elif value == -2:
             return score
-    elif key in ['DSE__DS_Custom_Field_5__c', 'DSE__DS_Custom_Field_6__c', 'DSE__DS_Domain__c']:
+    elif key in ['DSE__DS_Custom_Field_5__c',
+                 'DSE__DS_Custom_Field_6__c',
+                 'DSE__DS_Domain__c']:
         return exact_match(s1, s2)
     return score
+
 
 def calculate_score(weighting, null_score, s1_in, s2_in, score, key):
     s1, s2 = str(s1_in), str(s2_in)
@@ -142,9 +156,11 @@ def calculate_score(weighting, null_score, s1_in, s2_in, score, key):
             return 0 if s1 == s2 else -1
     raise Exception("Invalid input. Null Score above 100")
 
+
 def append_to_log(text_to_append):
     with open("Driver_log.txt", 'a') as file:
         file.write(text_to_append + '\n')
+
 
 def write_excel(file_path, data):
     if not data:
@@ -152,18 +168,19 @@ def write_excel(file_path, data):
     df = pd.DataFrame(data)
     df.to_excel(file_path, index=False)
 
+
 def weighted_ratio(config_dict, scores, score_exp, row):
     total_score = 0
-    #append_to_log('Adding scores for record: ' + row['Id'])
+    # append_to_log('Adding scores for record: ' + row['Id'])
     for key, value in scores.items():
-        if value < 0: # negative values indicate the 200 weighting fields.
+        if value < 0:  # negative values indicate the 200 weighting fields.
             # dictate whether it's allowed but don't count towards the score
             return 0
-        master_prefix = "DSE__DS_Master__r." # TODO: change . to _
-        dup_prefix = "DSE__DS_Duplicate__r."
-        master_field = row[master_prefix + key]
-        dup_field = row[dup_prefix + key]
-        #append_to_log(f'Key: {key} - Value {value} - master: {master_field} - dup: {dup_field}')
+        # master_prefix = "DSE__DS_Master__r."  # TODO: change . to _
+        # dup_prefix = "DSE__DS_Duplicate__r."
+        # master_field = row[master_prefix + key]
+        # dup_field = row[dup_prefix + key]
+        # append_to_log(f'Key: {key} - Value {value} - master: {master_field} - dup: {dup_field}')
         total_score += float(config_dict[key][1]) * value
 
     differences.append(total_score)
@@ -172,31 +189,39 @@ def weighted_ratio(config_dict, scores, score_exp, row):
         exp_scores.append(float(score_exp))
     else:
         exp_differences.append(total_score)
-    
+
     return total_score
+
 
 def DUNS_score(path_to_data):
     config_dict = load_config("config.csv")
     master_prefix = "DSE__DS_Master__r."
     dup_prefix = "DSE__DS_Duplicate__r."
     data = read_excel(path_to_data)
-
     for i in range(len(data)):
         out_dict = {}
         for key in config_dict.keys():
             master_field = data[i][master_prefix + key]
             dup_field = data[i][dup_prefix + key]
+            # key : [null, weighting]
             weighting = float(config_dict[key][1]) / 100
             null_score = float(config_dict[key][0]) / 100
             score = JW_score(master_field, dup_field)
             if score != 1.0:
                 score *= 0.7
-            score = calculate_score(weighting, null_score, master_field, dup_field, score, key)
+            score = calculate_score(
+                weighting, null_score, master_field, dup_field, score, key)
             out_dict[key] = score
 
-        data[i]['score'] = int(weighted_ratio(config_dict, out_dict, data[i]['DSE__DS_Score__c'], data[i]))
+       # if (data[i]['Id'] == 'aAjO10000004nKHKAY'):
+       #     print(out_dict)
+       #     assert 1 == 2
+
+        data[i]['score'] = int(weighted_ratio(
+            config_dict, out_dict, data[i]['DSE__DS_Score__c'], data[i]))
 
     return data
+
 
 def plot_histogram(data, bins=1000, title='Histogram', xlabel='Values', ylabel='Frequency', color='blue'):
     plt.figure(figsize=(8, 6))
@@ -207,11 +232,14 @@ def plot_histogram(data, bins=1000, title='Histogram', xlabel='Values', ylabel='
     plt.grid(True)
     plt.show()
 
+
 def driver():
     data = DUNS_score('DUNS_data.xlsx')
+    print(f'final before printing data length : {len(data)}')
+
     write_csv('FINAL.csv', data)
     write_excel('FINAL.xlsx', data)
-    
+
     correct, incorrect, total = 0, 0, 0
     incorrect_data = []
 
@@ -226,19 +254,20 @@ def driver():
                 incorrect_data.append(row)
 
     print(f'corr ={correct} and incc = {incorrect}')
-    print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%')
-    
-    Score_Matching = [
-        int(correct/total * 100),
-        int(incorrect/total * 100),
-        np.array(differences).mean(),
-        np.std(np.array(differences)),
-        np.max(np.array(differences))
-    ]
-    
+    print(f'The totals are: correct={
+          int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%')
+
+    # Score_Matching = [
+    #     int(correct/total * 100),
+    #     int(incorrect/total * 100),
+    #     np.array(differences).mean(),
+    #     np.std(np.array(differences)),
+    #     np.max(np.array(differences))
+    # ]
+
     stats_data = np.array(differences)
     a = np.array(exp_differences)
-    
+
     print(f'mean = {stats_data.mean()}')
     print(f'max = {stats_data.max()}')
     print(f'min = {stats_data.min()}')
@@ -248,7 +277,8 @@ def driver():
     print(f'min diff = {a.min()}')
     print(f'std diff = {np.std(a)}')
     print(f'len= {len(a.tolist())}')
-    
+
     plot_histogram(stats_data)
+
 
 print(driver())
