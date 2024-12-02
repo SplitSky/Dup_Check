@@ -1,15 +1,5 @@
 #!/bin/bash
 
-# Function to remove the cloned GitHub repository
-remove_repo() {
-    if [ -d "./repo" ]; then
-        echo "Removing cloned repository..."
-        rm -rf ~/Documents/Python_config/
-    else
-        echo "No repository found to remove."
-    fi
-}
-
 # Function to uninstall Python3 (if installed via Homebrew)
 uninstall_python3() {
     if brew list python &>/dev/null; then
@@ -27,17 +17,6 @@ uninstall_homebrew() {
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
     else
         echo "Homebrew is not installed."
-    fi
-}
-
-# Function to remove Xcode Command Line Tools (if installed)
-remove_xcode_tools() {
-    if xcode-select --print-path &>/dev/null; then
-        echo "Removing Xcode Command Line Tools..."
-        sudo rm -rf /Library/Developer/CommandLineTools
-        sudo xcode-select --reset
-    else
-        echo "Xcode Command Line Tools are not installed."
     fi
 }
 
