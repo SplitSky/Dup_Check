@@ -4,7 +4,7 @@
 remove_repo() {
     if [ -d "./repo" ]; then
         echo "Removing cloned repository..."
-        rm -rf ./repo
+        rm -rf ~/Documents/Python_config/
     else
         echo "No repository found to remove."
     fi
