@@ -234,6 +234,7 @@ def plot_histogram(data, bins=1000, title='Histogram', xlabel='Values', ylabel='
 
 
 def driver():
+    print("Make sure that your data file is called DUNS_data.xlsx")
     data = DUNS_score('DUNS_data.xlsx')
     print(f'final before printing data length : {len(data)}')
 
