@@ -20,6 +20,17 @@ uninstall_homebrew() {
     fi
 }
 
+# Function to remove Xcode Command Line Tools (if installed)
+remove_xcode_tools() {
+    if xcode-select --print-path &>/dev/null; then
+        echo "Removing Xcode Command Line Tools..."
+        sudo rm -rf /Library/Developer/CommandLineTools
+        sudo xcode-select --reset
+    else
+        echo "Xcode Command Line Tools are not installed."
+    fi
+}
+
 # Main script execution
 echo "Starting cleanup..."
 
