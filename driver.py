@@ -255,8 +255,7 @@ def driver():
                 incorrect_data.append(row)
 
     print(f'corr ={correct} and incc = {incorrect}')
-    print(f'The totals are: correct={
-          int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%')
+    print(f'The totals are: correct={int(correct/total * 100)}% and incorrect={int(incorrect/total * 100)}%')
 
     # Score_Matching = [
     #     int(correct/total * 100),
