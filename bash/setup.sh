@@ -72,7 +72,7 @@ echo "You have a package manager now!"
 install_python3
 echo "You have python now!"
 
-REPO_URL="git@github.com:SplitSky/Dup_Check.git"  # Replace with your GitHub repository URL
+REPO_URL="https://github.com/SplitSky/Dup_Check.git"
 clone_repo "$REPO_URL"
 echo "You got my code!"
 setup_virtualenv
